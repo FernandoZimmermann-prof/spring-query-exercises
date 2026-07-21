@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pratica de Queries - Spring Data JPA</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --line: #334155;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --green: #22c55e;
+            --red: #ef4444;
+            --amber: #f59e0b;
+            --gray: #64748b;
+            --accent: #38bdf8;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 24px;
+        }
+        header { max-width: 960px; margin: 0 auto 20px; }
+        h1 { margin: 0 0 4px; font-size: 24px; }
+        .sub { color: var(--muted); font-size: 14px; }
+        .bar {
+            max-width: 960px; margin: 0 auto 20px;
+            display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+        }
+        button {
+            background: var(--accent); color: #082f49; border: 0;
+            padding: 10px 16px; border-radius: 8px; font-weight: 600;
+            cursor: pointer; font-size: 14px;
+        }
+        button:hover { filter: brightness(1.1); }
+        .progress {
+            flex: 1; min-width: 200px; height: 12px; background: var(--line);
+            border-radius: 999px; overflow: hidden;
+        }
+        .progress > div { height: 100%; width: 0; background: var(--green); transition: width .3s; }
+        .count { color: var(--muted); font-size: 14px; white-space: nowrap; }
+        .group { max-width: 960px; margin: 0 auto 28px; }
+        .group h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+        .card {
+            background: var(--card); border: 1px solid var(--line);
+            border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
+        }
+        .row { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+        .num { font-variant-numeric: tabular-nums; color: var(--muted); width: 28px; font-size: 13px; }
+        .titulo { flex: 1; font-weight: 600; }
+        .tipo { font-size: 11px; color: var(--muted); border: 1px solid var(--line); padding: 2px 8px; border-radius: 999px; }
+        .badge { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+        .PASSOU { background: rgba(34,197,94,.15); color: var(--green); }
+        .FALHOU { background: rgba(239,68,68,.15); color: var(--red); }
+        .PENDENTE { background: rgba(100,116,139,.2); color: var(--gray); }
+        .ERRO { background: rgba(245,158,11,.15); color: var(--amber); }
+        .detalhe { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 13px; display: none; }
+        .detalhe.open { display: block; }
+        .detalhe p { margin: 6px 0; color: var(--muted); }
+        .detalhe code { background: #0b1220; padding: 2px 6px; border-radius: 5px; color: var(--accent); }
+        .assinatura { display: block; background: #0b1220; padding: 8px 10px; border-radius: 6px; color: #e2e8f0; margin: 8px 0; overflow-x: auto; }
+        .kv { color: var(--muted); }
+        .kv b { color: var(--text); }
+        footer { max-width: 960px; margin: 24px auto 0; color: var(--muted); font-size: 12px; }
+        a { color: var(--accent); }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Pratica de Queries &mdash; Spring Data JPA</h1>
+    <div class="sub">Implemente os metodos nos repositories e clique em <b>Reexecutar</b> (ou recarregue a pagina) para conferir.</div>
+</header>
+
+<div class="bar">
+    <button onclick="carregar()">Reexecutar</button>
+    <div class="progress"><div id="progressbar"></div></div>
+    <div class="count" id="contador">carregando...</div>
+</div>
+
+<div id="conteudo"></div>
+
+<footer>
+    Dica: abra o <a href="/h2-console" target="_blank">console do H2</a> (JDBC URL <code>jdbc:h2:mem:querydb</code>, user <code>sa</code>) para ver os dados.
+    &nbsp;|&nbsp; API: <a href="/exercicios" target="_blank">/exercicios</a>
+</footer>
+
+<script>
+    const GRUPOS = [
+        { chave: "FACIL",   titulo: "Facil" },
+        { chave: "MEDIO",   titulo: "Medio" },
+        { chave: "DIFICIL", titulo: "Dificil" }
+    ];
+
+    async function carregar() {
+        const cont = document.getElementById("conteudo");
+        document.getElementById("contador").textContent = "avaliando...";
+        let dados;
+        try {
+            const resp = await fetch("/exercicios");
+            dados = await resp.json();
+        } catch (e) {
+            cont.innerHTML = "<p>Nao consegui falar com o servidor. A aplicacao esta rodando?</p>";
+            return;
+        }
+
+        const passou = dados.filter(d => d.status === "PASSOU").length;
+        const total = dados.length;
+        document.getElementById("contador").textContent = passou + " / " + total + " concluidos";
+        document.getElementById("progressbar").style.width = (total ? (passou / total * 100) : 0) + "%";
+
+        cont.innerHTML = "";
+        for (const g of GRUPOS) {
+            const doGrupo = dados.filter(d => d.dificuldade === g.chave);
+            if (!doGrupo.length) continue;
+            const div = document.createElement("div");
+            div.className = "group";
+            div.innerHTML = "<h2>" + g.titulo + "</h2>";
+            for (const ex of doGrupo) {
+                div.appendChild(cardDe(ex));
+            }
+            cont.appendChild(div);
+        }
+    }
+
+    function esc(s) {
+        return (s == null ? "" : String(s))
+            .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    }
+
+    function cardDe(ex) {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+            <div class="row" onclick="this.parentNode.querySelector('.detalhe').classList.toggle('open')">
+                <span class="num">#${ex.numero}</span>
+                <span class="titulo">${esc(ex.titulo)}</span>
+                <span class="tipo">${esc(ex.tipo)}</span>
+                <span class="badge ${ex.status}">${ex.status}</span>
+            </div>
+            <div class="detalhe">
+                <p>${esc(ex.enunciado)}</p>
+                <code class="assinatura">${esc(ex.assinatura)}</code>
+                <p class="kv"><b>Dica:</b> ${esc(ex.dica)}</p>
+                <p class="kv"><b>Esperado:</b> ${esc(ex.esperado)}</p>
+                <p class="kv"><b>Seu resultado:</b> ${esc(ex.obtido)}</p>
+                ${ex.mensagem ? `<p class="kv"><b>Status:</b> ${esc(ex.mensagem)}</p>` : ""}
+            </div>`;
+        return card;
+    }
+
+    carregar();
+</script>
+</body>
+</html>
